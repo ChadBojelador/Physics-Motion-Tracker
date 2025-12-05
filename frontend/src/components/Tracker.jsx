@@ -151,83 +151,53 @@ function Tracker() {
   }, [watchId]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-800 mb-8 text-center">GPS Distance Tracker</h1>
+    <div className="sender-root">
+      <h2 className="section-title">GPS Tracker</h2>
 
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <div className="flex gap-3 mb-6">
-            <button 
-              onClick={startTracking} 
-              disabled={isTracking}
-              className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-            >
-              Start Tracking
-            </button>
-            <button 
-              onClick={stopTracking} 
-              disabled={!isTracking}
-              className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-            >
-              Stop Tracking
-            </button>
-            <button
-              onClick={resetTracker}
-              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-            >
-              Reset
-            </button>
-          </div>
-
-          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
-            <strong>Status:</strong> {status}
-          </div>
-
-          {error && (
-            <div className="mt-4 bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg">
-              <strong>Error:</strong> {error}
-            </div>
-          )}
-        </div>
-
-        {location && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Current Location</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Latitude</div>
-                <div className="text-lg font-semibold text-gray-800">{location.latitude.toFixed(6)}</div>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Longitude</div>
-                <div className="text-lg font-semibold text-gray-800">{location.longitude.toFixed(6)}</div>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Speed</div>
-                <div className="text-lg font-semibold text-gray-800">
-                  {location.speed !== null && location.speed !== undefined 
-                    ? (location.speed < 0.05 ? '0.00 m/s' : `${location.speed.toFixed(2)} m/s`) 
-                    : 'N/A'}
-                </div>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Total Distance</div>
-                <div className="text-lg font-semibold text-gray-800">{totalDistance.toFixed(2)} m</div>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Last Movement</div>
-                <div className="text-lg font-semibold text-gray-800">
-                  {lastSegmentDistance !== null ? `${lastSegmentDistance.toFixed(2)} m` : 'N/A'}
-                </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="text-sm text-gray-600 mb-1">Timestamp</div>
-                <div className="text-sm font-semibold text-gray-800">{new Date(location.timestamp).toLocaleString()}</div>
-              </div>
-            </div>
-          </div>
-        )}
+      <div style={{ marginBottom: '18px' }}>
+        <button 
+          onClick={startTracking} 
+          disabled={isTracking}
+          className="btn btn-primary"
+          style={{ marginRight: 10 }}
+        >
+          Start Tracking
+        </button>
+        <button 
+          onClick={stopTracking} 
+          disabled={!isTracking}
+          className="btn btn-ghost"
+        >
+          Stop Tracking
+        </button>
+        <button
+          onClick={resetTracker}
+          className="btn btn-secondary"
+          style={{ marginLeft: 10 }}
+        >
+          Reset
+        </button>
       </div>
+
+      <div className="status small">Status: {status}</div>
+
+      {error && (
+        <div className="error"><strong>Error:</strong> {error}</div>
+      )}
+
+      {location && (
+        <div className="card" style={{ background: 'linear-gradient(90deg,#e6fbff,#f0fff8)' }}>
+          <h3 style={{ marginTop: 0 }}>Current Location</h3>
+          <div className="location-grid">
+            <div className="location-item"><strong>Latitude</strong><div className="small">{location.latitude.toFixed(6)}</div></div>
+            <div className="location-item"><strong>Longitude</strong><div className="small">{location.longitude.toFixed(6)}</div></div>
+            <div className="location-item"><strong>Speed</strong><div className="small">{location.speed !== null && location.speed !== undefined ? (location.speed < 0.05 ? '0.00 m/s' : `${location.speed.toFixed(2)} m/s`) : 'N/A'}</div></div>
+            <div className="location-item"><strong>Distance</strong><div className="small">{totalDistance.toFixed(2)} m</div></div>
+            <div className="location-item"><strong>Last Movement</strong><div className="small">{lastSegmentDistance !== null ? `${lastSegmentDistance.toFixed(2)} m` : 'N/A'}</div></div>
+            <div className="location-item"><strong>Timestamp</strong><div className="small">{new Date(location.timestamp).toLocaleString()}</div></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
