@@ -69,8 +69,12 @@ function Tracker() {
       const lastUTM = latLonToUTM(lastLocationRef.current.latitude, lastLocationRef.current.longitude);
       const currentUTM = latLonToUTM(newLocation.latitude, newLocation.longitude);
       
-      // Only add distance if in same UTM zone and distance is reasonable (< 100m per update to filter GPS jumps)
-      if (lastUTM.zone === currentUTM.zone) {
+      // Only add distance if:
+      // 1. Speed is greater than 0 (actually moving)
+      // 2. In same UTM zone
+      // 3. Distance is reasonable (< 100m per update to filter GPS jumps)
+      const hasSpeed = newLocation.speed !== null && newLocation.speed > 0;
+      if (hasSpeed && lastUTM.zone === currentUTM.zone) {
         const segmentDistance = calculateUTMDistance(lastUTM, currentUTM);
         if (segmentDistance < 100) {
           setTotalDistance(prev => prev + segmentDistance);
