@@ -205,7 +205,9 @@ function Tracker() {
               <div className="bg-green-50 p-4 rounded-lg">
                 <div className="text-sm text-gray-600 mb-1">Speed</div>
                 <div className="text-lg font-semibold text-gray-800">
-                  {location.speed !== null && location.speed !== undefined ? `${location.speed.toFixed(2)} m/s` : 'N/A'}
+                  {location.speed !== null && location.speed !== undefined 
+                    ? (location.speed < 0.05 ? '0.00 m/s' : `${location.speed.toFixed(2)} m/s`) 
+                    : 'N/A'}
                 </div>
               </div>
               <div className="bg-purple-50 p-4 rounded-lg">
