@@ -54,6 +54,7 @@ function Tracker() {
   const [error, setError] = useState(null);
   const [watchId, setWatchId] = useState(null);
   const [totalDistance, setTotalDistance] = useState(0);
+  const [lastSegmentDistance, setLastSegmentDistance] = useState(null);
   const lastLocationRef = useRef(null);
 
   const handlePosition = (position) => {
@@ -70,13 +71,16 @@ function Tracker() {
       const currentUTM = latLonToUTM(newLocation.latitude, newLocation.longitude);
       
       // Only add distance if:
-      // 1. Speed is greater than 0 (actually moving)
-      // 2. In same UTM zone
-      // 3. Distance is reasonable (< 100m per update to filter GPS jumps)
-      const hasSpeed = newLocation.speed !== null && newLocation.speed > 0;
-      if (hasSpeed && lastUTM.zone === currentUTM.zone) {
+      // 1. User is actually moving (speed > 0.5 m/s, about 1.8 km/h walking pace)
+      // 2. Same UTM zone
+      // 3. Distance is reasonable (5m - 100m to filter drift and jumps)
+      const isMoving = newLocation.speed !== null && newLocation.speed !== undefined && newLocation.speed > 0.5;
+      
+      if (lastUTM.zone === currentUTM.zone) {
         const segmentDistance = calculateUTMDistance(lastUTM, currentUTM);
-        if (segmentDistance < 100) {
+        setLastSegmentDistance(segmentDistance);
+        
+        if (isMoving && segmentDistance >= 5 && segmentDistance < 100) {
           setTotalDistance(prev => prev + segmentDistance);
         }
       }
@@ -121,6 +125,7 @@ function Tracker() {
     }
     setIsTracking(false);
     setStatus('Tracking stopped');
+    setLastSegmentDistance(null);
   };
 
   const resetTracker = () => {
@@ -133,6 +138,7 @@ function Tracker() {
     setError(null);
     setStatus('Ready to track');
     setTotalDistance(0);
+    setLastSegmentDistance(null);
     lastLocationRef.current = null;
   };
 
@@ -187,6 +193,7 @@ function Tracker() {
             <div className="location-item"><strong>Longitude</strong><div className="small">{location.longitude.toFixed(6)}</div></div>
             <div className="location-item"><strong>Speed</strong><div className="small">{location.speed !== null && location.speed !== undefined ? `${location.speed.toFixed(2)} m/s` : 'N/A'}</div></div>
             <div className="location-item"><strong>Distance</strong><div className="small">{totalDistance.toFixed(2)} m</div></div>
+            <div className="location-item"><strong>Last Movement</strong><div className="small">{lastSegmentDistance !== null ? `${lastSegmentDistance.toFixed(2)} m` : 'N/A'}</div></div>
             <div className="location-item"><strong>Timestamp</strong><div className="small">{new Date(location.timestamp).toLocaleString()}</div></div>
           </div>
         </div>
