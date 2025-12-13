@@ -83,7 +83,7 @@ function Tracker() {
   const [status, setStatus] = useState('Ready to track');
   const [isTracking, setIsTracking] = useState(false);
   const [error, setError] = useState(null);
-  const [watchId, setWatchId] = useState(null);
+  const watchIdRef = useRef(null);
   const [totalDistance, setTotalDistance] = useState(0);
   const [lastSegmentDistance, setLastSegmentDistance] = useState(null);
   const [trackingPath, setTrackingPath] = useState([]);
@@ -150,13 +150,13 @@ function Tracker() {
       }
     );
 
-    setWatchId(id);
+    watchIdRef.current = id;
   };
 
   const stopTracking = () => {
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId);
-      setWatchId(null);
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
     }
     setIsTracking(false);
     setStatus('Tracking stopped');
@@ -164,9 +164,9 @@ function Tracker() {
   };
 
   const resetTracker = () => {
-    if (watchId !== null) {
-      navigator.geolocation.clearWatch(watchId);
-      setWatchId(null);
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
     }
     setIsTracking(false);
     setLocation(null);
@@ -180,11 +180,11 @@ function Tracker() {
 
   useEffect(() => {
     return () => {
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [watchId]);
+  }, []);
 
   return (
     <div className="sender-root">

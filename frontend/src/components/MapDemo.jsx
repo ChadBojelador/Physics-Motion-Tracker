@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, Circle, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import './MapDemo.css';
 
 // Fix for default marker icons in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -32,13 +33,177 @@ const createMovingIcon = (speed) => {
   });
 };
 
-// Component to auto-center map on current position
-function MapController({ position, zoom, isMoving }) {
-  const map = useMap();
-  
-  // Don't auto-center - let user control the map freely
-  return null;
-}
+const METERS_PER_DEGREE = 111000;
+const ROUTE_SEGMENT_METERS = 10;
+const ROAD_TURN_PROBABILITY = 0.15;
+
+const calculateDistance = (point1, point2) => {
+  const R = 6371000;
+  const lat1 = point1[0] * Math.PI / 180;
+  const lat2 = point2[0] * Math.PI / 180;
+  const deltaLat = (point2[0] - point1[0]) * Math.PI / 180;
+  const deltaLon = (point2[1] - point1[1]) * Math.PI / 180;
+
+  const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+            Math.cos(lat1) * Math.cos(lat2) *
+            Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
+
+const getZoomForDistance = (distance) => {
+  if (distance < 50) return 18;
+  if (distance < 200) return 16;
+  if (distance < 500) return 15;
+  if (distance < 1000) return 14;
+  return 13;
+};
+
+const buildCumulativeDistances = (points) => {
+  if (!points.length) {
+    return [];
+  }
+
+  const cumulative = [0];
+  for (let i = 1; i < points.length; i++) {
+    cumulative[i] = cumulative[i - 1] + calculateDistance(points[i - 1], points[i]);
+  }
+  return cumulative;
+};
+
+const fetchRoadNetworkRoute = async (start, end) => {
+  const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error('OSRM request failed');
+  }
+
+  const data = await response.json();
+  if (!data.routes?.length) {
+    throw new Error('No OSRM routes available');
+  }
+
+  const route = data.routes[0];
+  const points = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+
+  return {
+    points,
+    distance: route.distance
+  };
+};
+
+const generateRouteToDestination = (start, end, maxDistance) => {
+  const points = [start];
+  const totalDistance = calculateDistance(start, end);
+  const useDistance = Math.min(maxDistance, totalDistance);
+  const numPoints = Math.ceil(useDistance / ROUTE_SEGMENT_METERS);
+
+  const latDiff = end[0] - start[0];
+  const lonDiff = end[1] - start[1];
+  const targetAngle = Math.atan2(lonDiff, latDiff) * 180 / Math.PI;
+
+  let currentPos = [...start];
+  let currentAngle = targetAngle;
+
+  for (let i = 0; i < numPoints; i++) {
+    const angleToDestination = Math.atan2(
+      end[1] - currentPos[1],
+      end[0] - currentPos[0]
+    ) * 180 / Math.PI;
+
+    const angleDiff = ((angleToDestination - currentAngle + 180) % 360) - 180;
+    currentAngle += angleDiff * 0.3;
+
+    if (Math.random() < 0.1) {
+      currentAngle += (Math.random() - 0.5) * 30;
+    }
+
+    const latChange = (Math.cos(currentAngle * Math.PI / 180) * ROUTE_SEGMENT_METERS) / METERS_PER_DEGREE;
+    const lonChange = (Math.sin(currentAngle * Math.PI / 180) * ROUTE_SEGMENT_METERS) /
+      (METERS_PER_DEGREE * Math.cos(currentPos[0] * Math.PI / 180));
+
+    currentPos = [
+      currentPos[0] + latChange,
+      currentPos[1] + lonChange
+    ];
+
+    points.push([...currentPos]);
+  }
+
+  if (useDistance >= totalDistance) {
+    points.push(end);
+  }
+
+  return {
+    points,
+    distance: Math.min(useDistance, totalDistance)
+  };
+};
+
+const generateProceduralRoute = (start, distance) => {
+  const points = [start];
+  const numPoints = Math.ceil(distance / ROUTE_SEGMENT_METERS);
+
+  let currentPos = [...start];
+  const roadAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+  let currentAngle = roadAngles[Math.floor(Math.random() * roadAngles.length)];
+
+  for (let i = 0; i < numPoints; i++) {
+    if (Math.random() < ROAD_TURN_PROBABILITY) {
+      const angleChange = [-90, -45, 45, 90][Math.floor(Math.random() * 4)];
+      currentAngle = (currentAngle + angleChange + 360) % 360;
+    }
+
+    const latChange = (Math.cos(currentAngle * Math.PI / 180) * ROUTE_SEGMENT_METERS) / METERS_PER_DEGREE;
+    const lonChange = (Math.sin(currentAngle * Math.PI / 180) * ROUTE_SEGMENT_METERS) /
+      (METERS_PER_DEGREE * Math.cos(currentPos[0] * Math.PI / 180));
+
+    currentPos = [
+      currentPos[0] + latChange,
+      currentPos[1] + lonChange
+    ];
+
+    points.push([...currentPos]);
+  }
+
+  return {
+    points,
+    distance
+  };
+};
+
+const generateRoadRoute = async (start, distance, destinationPoint) => {
+  if (destinationPoint) {
+    try {
+      const networkRoute = await fetchRoadNetworkRoute(start, destinationPoint);
+      if (networkRoute?.points?.length) {
+        return networkRoute;
+      }
+    } catch (error) {
+      console.warn('Falling back to simulated route:', error.message);
+    }
+
+    return generateRouteToDestination(start, destinationPoint, distance);
+  }
+
+  return generateProceduralRoute(start, distance);
+};
+
+const formatEstimatedDuration = (distance, speed) => {
+  if (speed <= 0) {
+    return '0s';
+  }
+
+  const totalSeconds = Math.ceil(distance / speed);
+  if (totalSeconds >= 60) {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}m ${secs}s`;
+  }
+
+  return `${totalSeconds}s`;
+};
 
 // Component to handle map clicks for pinning
 function MapClickHandler({ isPinningMode, onMapClick }) {
@@ -68,8 +233,10 @@ function MapDemo({ onNavigate }) {
   const [path, setPath] = useState([[14.5995, 120.9842]]);
   const [isMoving, setIsMoving] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
-  const [routePoints, setRoutePoints] = useState([]);
   const routeIndexRef = useRef(0);
+  const routePointsRef = useRef([]);
+  const cumulativeDistancesRef = useRef([]);
+  const isMovingRef = useRef(false);
   const [destination, setDestination] = useState(null);
   const [isPinningMode, setIsPinningMode] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -77,6 +244,16 @@ function MapDemo({ onNavigate }) {
   const intervalRef = useRef(null);
   const timeIntervalRef = useRef(null);
   const speedRef = useRef(speed);
+
+  useEffect(() => {
+    speedRef.current = speed;
+  }, [speed]);
+
+  useEffect(() => {
+    isMovingRef.current = isMoving;
+  }, [isMoving]);
+
+  const zoomLevel = useMemo(() => getZoomForDistance(targetDistance), [targetDistance]);
 
   // Get user's current location on mount
   useEffect(() => {
@@ -101,190 +278,103 @@ function MapDemo({ onNavigate }) {
     }
   }, []);
 
-  const startMovement = async () => {
+  const startMovement = useCallback(async () => {
     if (isMoving) return;
-    
-    setIsMoving(true);
+
     setCurrentDistance(0);
     setElapsedTime(0);
     const startPos = [...position];
     setPath([startPos]);
+    setIsMoving(true);
 
-    // Generate a route along roads (to destination if set)
-    const route = await generateRoadRoute(startPos, targetDistance, destination);
-    setRoutePoints(route);
-    routeIndexRef.current = 0;
+    try {
+      const { points, distance: routeDistance } = await generateRoadRoute(startPos, targetDistance, destination);
+      if (!points || points.length < 2) {
+        throw new Error('Route contains insufficient points');
+      }
 
-    let traveled = 0;
-    
-    // Update speedRef to current speed
-    speedRef.current = speed;
-    
-    // Start time counter
-    timeIntervalRef.current = setInterval(() => {
-      setElapsedTime(prev => prev + 0.1);
-    }, 100);
+      const cumulativeDistances = buildCumulativeDistances(points);
+      const computedRouteDistance = routeDistance ?? cumulativeDistances[cumulativeDistances.length - 1] ?? targetDistance;
+      const effectiveDistance = destination
+        ? computedRouteDistance
+        : Math.min(targetDistance, computedRouteDistance || targetDistance);
 
-    intervalRef.current = setInterval(() => {
-      const distanceIncrement = speedRef.current * 0.1; // Use speedRef to get current speed
-      
-      if (traveled >= targetDistance || routeIndexRef.current >= route.length - 1) {
-        clearInterval(intervalRef.current);
-        clearInterval(timeIntervalRef.current);
-        setIsMoving(false);
+      if (!isMovingRef.current) {
         return;
       }
 
-      // Move along the route points
-      const segmentDistance = distanceIncrement;
-      traveled += segmentDistance;
-      
-      // Calculate which point on route we should be at
-      const progressRatio = traveled / targetDistance;
-      const targetIndex = Math.min(
-        Math.floor(progressRatio * route.length),
-        route.length - 1
-      );
-      
-      if (targetIndex > routeIndexRef.current) {
-        routeIndexRef.current = targetIndex;
-        const newPos = route[targetIndex];
-        setPosition(newPos);
-        setPath(prev => [...prev, newPos]);
+      if (destination && computedRouteDistance) {
+        setTargetDistance(Math.round(computedRouteDistance));
       }
 
-      setCurrentDistance(traveled);
-    }, 100);
-  };
+      routePointsRef.current = points;
+      cumulativeDistancesRef.current = cumulativeDistances;
+      routeIndexRef.current = 0;
 
-  // Generate a route that follows roads
-  const generateRoadRoute = async (start, distance, destinationPoint) => {
-    // If destination is set, navigate towards it
-    if (destinationPoint) {
-      return generateRouteToDestination(start, destinationPoint, distance);
-    }
-    
-    // For demo: create a realistic road-like path
-    // In production, you'd use a routing API like OSRM, MapBox, or Google Directions
-    const points = [start];
-    const numPoints = Math.ceil(distance / 10); // Point every ~10 meters
-    
-    // Simulate road segments with realistic turns
-    let currentPos = [...start];
-    const metersPerDegree = 111000;
-    
-    // Common road directions (N, NE, E, SE, S, SW, W, NW)
-    const roadAngles = [0, 45, 90, 135, 180, 225, 270, 315];
-    let currentAngle = roadAngles[Math.floor(Math.random() * roadAngles.length)];
-    
-    for (let i = 0; i < numPoints; i++) {
-      // Occasionally change direction (simulate turns at intersections)
-      if (Math.random() < 0.15) { // 15% chance of turn
-        const angleChange = [-90, -45, 45, 90][Math.floor(Math.random() * 4)];
-        currentAngle = (currentAngle + angleChange + 360) % 360;
-      }
-      
-      const segmentLength = 10; // 10 meters per segment
-      const latChange = (Math.cos(currentAngle * Math.PI / 180) * segmentLength) / metersPerDegree;
-      const lonChange = (Math.sin(currentAngle * Math.PI / 180) * segmentLength) / 
-        (metersPerDegree * Math.cos(currentPos[0] * Math.PI / 180));
-      
-      currentPos = [
-        currentPos[0] + latChange,
-        currentPos[1] + lonChange
-      ];
-      
-      points.push([...currentPos]);
-    }
-    
-    return points;
-  };
+      let traveled = 0;
 
-  // Generate route towards a specific destination
-  const generateRouteToDestination = (start, end, maxDistance) => {
-    const points = [start];
-    const metersPerDegree = 111000;
-    
-    // Calculate total distance to destination
-    const totalDistance = calculateDistance(start, end);
-    const useDistance = Math.min(maxDistance, totalDistance);
-    const numPoints = Math.ceil(useDistance / 10);
-    
-    // Calculate general direction to destination
-    const latDiff = end[0] - start[0];
-    const lonDiff = end[1] - start[1];
-    const targetAngle = Math.atan2(lonDiff, latDiff) * 180 / Math.PI;
-    
-    let currentPos = [...start];
-    let currentAngle = targetAngle;
-    
-    for (let i = 0; i < numPoints; i++) {
-      // Slightly adjust angle towards destination with some randomness (simulate roads)
-      const angleToDestination = Math.atan2(
-        end[1] - currentPos[1],
-        end[0] - currentPos[0]
-      ) * 180 / Math.PI;
-      
-      // Gradually turn towards destination with some variation
-      const angleDiff = ((angleToDestination - currentAngle + 180) % 360) - 180;
-      currentAngle += angleDiff * 0.3; // 30% correction towards destination
-      
-      // Add some random variation to simulate roads
-      if (Math.random() < 0.1) {
-        currentAngle += (Math.random() - 0.5) * 30;
-      }
-      
-      const segmentLength = 10;
-      const latChange = (Math.cos(currentAngle * Math.PI / 180) * segmentLength) / metersPerDegree;
-      const lonChange = (Math.sin(currentAngle * Math.PI / 180) * segmentLength) / 
-        (metersPerDegree * Math.cos(currentPos[0] * Math.PI / 180));
-      
-      currentPos = [
-        currentPos[0] + latChange,
-        currentPos[1] + lonChange
-      ];
-      
-      points.push([...currentPos]);
-    }
-    
-    // If we're close enough, add the actual destination as final point
-    if (useDistance >= totalDistance) {
-      points.push(end);
-    }
-    
-    return points;
-  };
+      timeIntervalRef.current = setInterval(() => {
+        setElapsedTime((prev) => prev + 0.1);
+      }, 100);
 
-  // Calculate distance between two points in meters
-  const calculateDistance = (point1, point2) => {
-    const R = 6371000; // Earth's radius in meters
-    const lat1 = point1[0] * Math.PI / 180;
-    const lat2 = point2[0] * Math.PI / 180;
-    const deltaLat = (point2[0] - point1[0]) * Math.PI / 180;
-    const deltaLon = (point2[1] - point1[1]) * Math.PI / 180;
-    
-    const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-              Math.cos(lat1) * Math.cos(lat2) *
-              Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    
-    return R * c;
-  };
+      intervalRef.current = setInterval(() => {
+        const distanceIncrement = speedRef.current * 0.1;
+        traveled = Math.min(traveled + distanceIncrement, effectiveDistance);
 
+        const routePoints = routePointsRef.current;
+        const cumulative = cumulativeDistancesRef.current;
+        const newPositions = [];
+
+        while (
+          routeIndexRef.current < cumulative.length - 1 &&
+          cumulative[routeIndexRef.current + 1] <= traveled
+        ) {
+          routeIndexRef.current += 1;
+          newPositions.push(routePoints[routeIndexRef.current]);
+        }
+
+        if (newPositions.length) {
+          setPosition(newPositions[newPositions.length - 1]);
+          setPath((prev) => [...prev, ...newPositions]);
+        }
+
+        setCurrentDistance(traveled);
+
+        if (
+          traveled >= effectiveDistance ||
+          routeIndexRef.current >= routePoints.length - 1
+        ) {
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          if (timeIntervalRef.current) {
+            clearInterval(timeIntervalRef.current);
+            timeIntervalRef.current = null;
+          }
+          setIsMoving(false);
+        }
+      }, 100);
+    } catch (error) {
+      console.error('Unable to start movement:', error.message);
+      setIsMoving(false);
+    }
+  }, [destination, isMoving, position, targetDistance]);
   // Handle map click for pinning destination
-  const handleMapClick = (coords) => {
-    if (isPinningMode && !isMoving) {
-      setDestination(coords);
-      
-      // Calculate distance to destination
-      const dist = calculateDistance(position, coords);
-      setTargetDistance(Math.round(dist));
-      
-      setIsPinningMode(false);
+  const handleMapClick = useCallback((coords) => {
+    if (!isPinningMode || isMoving) {
+      return;
     }
-  };
 
-  const stopMovement = () => {
+    setDestination(coords);
+
+    const dist = calculateDistance(position, coords);
+    setTargetDistance(Math.round(dist));
+
+    setIsPinningMode(false);
+  }, [isMoving, isPinningMode, position]);
+
+  const stopMovement = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
@@ -294,16 +384,19 @@ function MapDemo({ onNavigate }) {
       timeIntervalRef.current = null;
     }
     setIsMoving(false);
-  };
+  }, []);
 
-  const resetDemo = () => {
+  const resetDemo = useCallback(() => {
     stopMovement();
     const startPos = userLocation || [14.5995, 120.9842];
     setPosition(startPos);
     setPath([startPos]);
     setCurrentDistance(0);
     setElapsedTime(0);
-  };
+    routeIndexRef.current = 0;
+    routePointsRef.current = [startPos];
+    cumulativeDistancesRef.current = [0];
+  }, [stopMovement, userLocation]);
 
   useEffect(() => {
     return () => {
@@ -315,15 +408,6 @@ function MapDemo({ onNavigate }) {
       }
     };
   }, []);
-
-  // Calculate zoom level based on distance
-  const calculateZoom = () => {
-    if (targetDistance < 50) return 18;
-    if (targetDistance < 200) return 16;
-    if (targetDistance < 500) return 15;
-    if (targetDistance < 1000) return 14;
-    return 13;
-  };
 
   return (
     <div style={{ 
@@ -346,7 +430,7 @@ function MapDemo({ onNavigate }) {
       }}>
         <MapContainer
           center={userLocation || position}
-          zoom={calculateZoom()}
+          zoom={zoomLevel}
           style={{ height: '100%', width: '100%' }}
           zoomControl={true}
           key={userLocation ? `${userLocation[0]}-${userLocation[1]}` : 'default'}
@@ -355,8 +439,7 @@ function MapDemo({ onNavigate }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          
-          <MapController position={position} zoom={calculateZoom()} isMoving={isMoving} />
+
           <MapClickHandler isPinningMode={isPinningMode} onMapClick={handleMapClick} />
 
           {/* Current position marker */}
@@ -524,15 +607,7 @@ function MapDemo({ onNavigate }) {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'clamp(0.7rem, 2vw, 0.75rem)', color: '#888' }}>Est. Total</div>
           <div style={{ fontSize: 'clamp(0.9rem, 3vw, 1.1rem)', color: '#E84855', fontWeight: '600' }}>
-            {speed > 0 ? (() => {
-              const totalSeconds = Math.ceil(targetDistance / speed);
-              if (totalSeconds >= 60) {
-                const mins = Math.floor(totalSeconds / 60);
-                const secs = totalSeconds % 60;
-                return `${mins}m ${secs}s`;
-              }
-              return `${totalSeconds}s`;
-            })() : '0s'}
+            {formatEstimatedDuration(targetDistance, speed)}
           </div>
         </div>
       </div>
@@ -693,7 +768,6 @@ function MapDemo({ onNavigate }) {
                 onChange={(e) => {
                   const newSpeed = parseFloat(e.target.value);
                   setSpeed(newSpeed);
-                  speedRef.current = newSpeed;
                 }}
                 style={{ width: '100%' }}
                 className="custom-slider"
@@ -759,55 +833,6 @@ function MapDemo({ onNavigate }) {
 
         </div>
       </div>
-
-      <style>{`
-        .custom-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          height: 6px;
-          background: rgba(27, 153, 139, 0.2);
-          border-radius: 5px;
-          outline: none;
-          touch-action: none;
-        }
-
-        .custom-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 20px;
-          height: 20px;
-          background: linear-gradient(135deg, #1B998B, #FF9B71);
-          cursor: pointer;
-          border-radius: 50%;
-          box-shadow: 0 2px 8px rgba(27, 153, 139, 0.5);
-        }
-
-        .custom-slider::-moz-range-thumb {
-          width: 20px;
-          height: 20px;
-          background: linear-gradient(135deg, #1B998B, #FF9B71);
-          cursor: pointer;
-          border-radius: 50%;
-          border: none;
-          box-shadow: 0 2px 8px rgba(27, 153, 139, 0.5);
-        }
-
-        .custom-slider:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-
-        @keyframes pulse {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          50% {
-            transform: scale(1.1);
-            opacity: 0.8;
-          }
-        }
-      `}</style>
     </div>
   );
 }

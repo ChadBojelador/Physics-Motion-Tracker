@@ -1,25 +1,101 @@
 import { useState, useEffect } from 'react';
 import './Home.css';
 
+const featureDetails = {
+  tracking: {
+    title: "Real-Time Tracking",
+    icon: "📍",
+    shortDesc: "Track GPS coordinates with high accuracy using your smartphone's location services",
+    details: [
+      "🔍 High-accuracy GPS mode enabled by default",
+      "📡 Continuous position updates via watchPosition API",
+      "🎯 UTM (Universal Transverse Mercator) coordinate system for precise calculations",
+      "⚡ Maximum location age: 0ms (always fresh data)",
+      "⏱️ 15-second timeout for optimal battery/accuracy balance",
+      "📊 Real-time latitude, longitude, and altitude tracking"
+    ],
+    formula: "Uses WGS84 ellipsoid constants for coordinate conversion"
+  },
+  physics: {
+    title: "Physics Calculations",
+    icon: "📊",
+    shortDesc: "Automatic calculation of speed, velocity, acceleration, and displacement using standard formulas",
+    details: [
+      "📏 Distance: Euclidean calculation √[(x₂-x₁)² + (y₂-y₁)²]",
+      "🚀 Speed: Direct GPS velocity in m/s",
+      "📍 Displacement: Total accumulated distance traveled",
+      "🎯 Segment filtering: Ignores jumps >100m (GPS errors)",
+      "🔄 Movement detection: Speed threshold at 0.05 m/s",
+      "📐 Coordinate projection: Lat/lon → UTM for metric calculations"
+    ],
+    formula: "Distance in meters using UTM projection, preserving sub-meter accuracy"
+  },
+  map: {
+    title: "Live Map View",
+    icon: "🗺️",
+    shortDesc: "Interactive map with compass directions showing your path and current location",
+    details: [
+      "🌍 OpenStreetMap integration for global coverage",
+      "🧭 Real-time compass heading and direction",
+      "📍 Your position marked with live updates",
+      "🛣️ Path visualization showing movement history",
+      "🔄 Auto-centering on your current location",
+      "📱 Responsive map controls optimized for mobile"
+    ],
+    formula: "Powered by OpenStreetMap and Leaflet.js mapping library"
+  },
+  sync: {
+    title: "Wireless Sync",
+    icon: "🔄",
+    shortDesc: "Send location data from your phone and receive it on your laptop in real-time",
+    details: [
+      "📡 WebSocket-based real-time communication",
+      "🔐 Secure peer-to-peer data transmission",
+      "📱 Send from smartphone, receive on any device",
+      "⚡ Low-latency updates (<100ms typical)",
+      "🌐 Works across local network or internet",
+      "💾 Automatic reconnection on connection loss"
+    ],
+    formula: "Node.js backend with Socket.io for bidirectional event-based communication"
+  }
+};
+
 function Home({ onNavigate }) {
-  const [isDarkMode, setIsDarkMode] = useState(true);
   const [hoveredCard, setHoveredCard] = useState(null);
 
   useEffect(() => {
+    // Scroll to top on mount
+    window.scrollTo(0, 0);
+    
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark');
       document.documentElement.setAttribute('data-theme', savedTheme);
     }
-  }, []);
 
-  const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-    const theme = newTheme ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  };
+    // Intersection Observer for scroll-based animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    });
+
+    const animateElements = document.querySelectorAll('.home-animate');
+    animateElements.forEach((el) => {
+      observer.observe(el);
+    });
+
+    return () => {
+      animateElements.forEach((el) => {
+        observer.unobserve(el);
+      });
+    };
+  }, []);
 
   useEffect(() => {
     const container = document.querySelector('.physics-background');
@@ -95,65 +171,6 @@ function Home({ onNavigate }) {
     };
   }, []);
 
-  const featureDetails = {
-    tracking: {
-      title: "Real-Time Tracking",
-      icon: "📍",
-      shortDesc: "Track GPS coordinates with high accuracy using your smartphone's location services",
-      details: [
-        "🔍 High-accuracy GPS mode enabled by default",
-        "📡 Continuous position updates via watchPosition API",
-        "🎯 UTM (Universal Transverse Mercator) coordinate system for precise calculations",
-        "⚡ Maximum location age: 0ms (always fresh data)",
-        "⏱️ 15-second timeout for optimal battery/accuracy balance",
-        "📊 Real-time latitude, longitude, and altitude tracking"
-      ],
-      formula: "Uses WGS84 ellipsoid constants for coordinate conversion"
-    },
-    physics: {
-      title: "Physics Calculations",
-      icon: "📊",
-      shortDesc: "Automatic calculation of speed, velocity, acceleration, and displacement using standard formulas",
-      details: [
-        "📏 Distance: Euclidean calculation √[(x₂-x₁)² + (y₂-y₁)²]",
-        "🚀 Speed: Direct GPS velocity in m/s",
-        "📍 Displacement: Total accumulated distance traveled",
-        "🎯 Segment filtering: Ignores jumps >100m (GPS errors)",
-        "🔄 Movement detection: Speed threshold at 0.05 m/s",
-        "📐 Coordinate projection: Lat/lon → UTM for metric calculations"
-      ],
-      formula: "Distance in meters using UTM projection, preserving sub-meter accuracy"
-    },
-    map: {
-      title: "Live Map View",
-      icon: "🗺️",
-      shortDesc: "Interactive map with compass directions showing your path and current location",
-      details: [
-        "🌍 OpenStreetMap integration for global coverage",
-        "🧭 Real-time compass heading and direction",
-        "📍 Your position marked with live updates",
-        "🛣️ Path visualization showing movement history",
-        "🔄 Auto-centering on your current location",
-        "📱 Responsive map controls optimized for mobile"
-      ],
-      formula: "Powered by OpenStreetMap and Leaflet.js mapping library"
-    },
-    sync: {
-      title: "Wireless Sync",
-      icon: "🔄",
-      shortDesc: "Send location data from your phone and receive it on your laptop in real-time",
-      details: [
-        "📡 WebSocket-based real-time communication",
-        "🔐 Secure peer-to-peer data transmission",
-        "📱 Send from smartphone, receive on any device",
-        "⚡ Low-latency updates (<100ms typical)",
-        "🌐 Works across local network or internet",
-        "💾 Automatic reconnection on connection loss"
-      ],
-      formula: "Node.js backend with Socket.io for bidirectional event-based communication"
-    }
-  };
-
   const handleCardClick = (page) => {
     onNavigate(page);
   };
@@ -164,7 +181,7 @@ function Home({ onNavigate }) {
         <div className="physics-grid"></div>
       </div>
       <div className="home-content">
-        <div className="hero-section">
+        <div className="hero-section home-animate" style={{ opacity: 0, transform: 'translateY(-20px)', transition: 'all 0.8s ease' }}>
           <div className="hero-content">
             <div className="hero-text">
               <h1 className="hero-title">Track Your Motion with Precision</h1>
@@ -228,9 +245,10 @@ function Home({ onNavigate }) {
           </div>
         </div>
 
-        <div className="features-grid">
+        <div className="features-grid home-animate" style={{ opacity: 0, transform: 'translateY(-20px)', transition: 'all 0.8s ease' }}>
           <div 
-            className="feature-card"
+            className="feature-card home-animate"
+            style={{ opacity: 0, transform: 'translateY(-20px)', transition: 'all 0.6s ease' }}
             onClick={() => handleCardClick('tracker')}
             onMouseEnter={() => setHoveredCard('tracking')}
             onMouseLeave={() => setHoveredCard(null)}
@@ -252,20 +270,20 @@ function Home({ onNavigate }) {
 
           <div 
             className="feature-card"
-            onClick={() => handleCardClick('tracker')}
+            onClick={() => handleCardClick('physics')}
             onMouseEnter={() => setHoveredCard('physics')}
             onMouseLeave={() => setHoveredCard(null)}
           >
             <div className="feature-icon">{featureDetails.physics.icon}</div>
             <h3>{featureDetails.physics.title}</h3>
-            <p>{featureDetails.physics.shortDesc}</p>
-            <div className="card-click-hint">Click to see calculations →</div>
+            <p>Explore the advanced calculations and formulas powering accurate motion tracking</p>
+            <div className="card-click-hint">Learn more →</div>
             {hoveredCard === 'physics' && (
               <div className="hover-tooltip">
                 <div className="tooltip-content">
-                  {featureDetails.physics.details.slice(0, 3).map((detail, idx) => (
-                    <div key={idx} className="tooltip-item">{detail}</div>
-                  ))}
+                  <div className="tooltip-item">📐 Euclidean Distance Calculations</div>
+                  <div className="tooltip-item">🌍 UTM Projection System</div>
+                  <div className="tooltip-item">🚀 Velocity & Acceleration Formulas</div>
                 </div>
               </div>
             )}
@@ -312,34 +330,12 @@ function Home({ onNavigate }) {
               </div>
             )}
           </div>
-
-          <div 
-            className="feature-card"
-            onClick={() => handleCardClick('physics')}
-            onMouseEnter={() => setHoveredCard('physics')}
-            onMouseLeave={() => setHoveredCard(null)}
-            style={{ 
-              background: 'linear-gradient(135deg, rgba(27, 153, 139, 0.1), rgba(255, 253, 130, 0.1))',
-              border: '2px solid rgba(27, 153, 139, 0.4)'
-            }}
-          >
-            <div className="feature-icon">🧮</div>
-            <h3>Physics & Formulas</h3>
-            <p>Explore the advanced calculations powering accurate motion tracking</p>
-            <div className="card-click-hint">Learn more →</div>
-            {hoveredCard === 'physics' && (
-              <div className="hover-tooltip">
-                <div className="tooltip-content">
-                  <div className="tooltip-item">📐 Euclidean Distance Calculations</div>
-                  <div className="tooltip-item">🌍 UTM Projection System</div>
-                  <div className="tooltip-item">🚀 Velocity & Acceleration Formulas</div>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
-        <div className="info-section">
+        <div
+          className="info-section home-animate"
+          style={{ opacity: 0, transform: 'translateY(30px)', transition: 'all 0.8s ease' }}
+        >
           <h3>How It Works</h3>
           <div className="steps">
             <div className="step">
@@ -366,7 +362,10 @@ function Home({ onNavigate }) {
           </div>
         </div>
 
-        <div className="tech-specs">
+        <div
+          className="tech-specs home-animate"
+          style={{ opacity: 0, transform: 'translateY(30px)', transition: 'all 0.8s ease' }}
+        >
           <h3>Technical Specifications</h3>
           <div className="specs-grid">
             <div className="spec-card">
