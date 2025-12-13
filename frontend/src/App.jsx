@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Home from './components/Home.jsx';
 import Tracker from './components/Tracker.jsx';
 import MapDemo from './components/MapDemo.jsx';
+import Physics from './components/Physics.jsx';
 import './index.css';
 
 export default function App() {
@@ -20,6 +21,10 @@ export default function App() {
           </div>
         </div>
       );
+    }
+
+    if (view === 'physics') {
+      return <Physics onNavigate={setView} />;
     }
 
     return (

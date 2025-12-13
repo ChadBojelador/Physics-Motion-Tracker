@@ -312,6 +312,31 @@ function Home({ onNavigate }) {
               </div>
             )}
           </div>
+
+          <div 
+            className="feature-card"
+            onClick={() => handleCardClick('physics')}
+            onMouseEnter={() => setHoveredCard('physics')}
+            onMouseLeave={() => setHoveredCard(null)}
+            style={{ 
+              background: 'linear-gradient(135deg, rgba(27, 153, 139, 0.1), rgba(255, 253, 130, 0.1))',
+              border: '2px solid rgba(27, 153, 139, 0.4)'
+            }}
+          >
+            <div className="feature-icon">🧮</div>
+            <h3>Physics & Formulas</h3>
+            <p>Explore the advanced calculations powering accurate motion tracking</p>
+            <div className="card-click-hint">Learn more →</div>
+            {hoveredCard === 'physics' && (
+              <div className="hover-tooltip">
+                <div className="tooltip-content">
+                  <div className="tooltip-item">📐 Euclidean Distance Calculations</div>
+                  <div className="tooltip-item">🌍 UTM Projection System</div>
+                  <div className="tooltip-item">🚀 Velocity & Acceleration Formulas</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="info-section">
@@ -371,27 +396,6 @@ function Home({ onNavigate }) {
           </div>
         </div>
 
-        <div className="physics-info">
-          <h3>Physics Formulas Used</h3>
-          <div className="formula-cards">
-            <div className="formula-card">
-              <h4 style={{ color: '#fff' }}>📐 Euclidean Distance</h4>
-              <div className="formula-math">d = √[(x₂ - x₁)² + (y₂ - y₁)²]</div>
-              <p>Calculates straight-line distance between two UTM coordinate points in meters</p>
-            </div>
-            <div className="formula-card">
-              <h4 style={{ color: '#fff' }}>🌍 UTM Projection</h4>
-              <div className="formula-math">WGS84 Ellipsoid → UTM Easting/Northing</div>
-              <p>Converts latitude/longitude to Cartesian coordinates for accurate metric calculations</p>
-            </div>
-            <div className="formula-card">
-              <h4 style={{ color: '#fff' }}>🚀 Speed Measurement</h4>
-              <div className="formula-math">v = GPS velocity (m/s)</div>
-              <p>Direct measurement from GPS sensor using Doppler shift or position delta</p>
-            </div>
-          </div>
-        </div>
-
         <footer className="footer">
           <div className="footer-content">
             <div className="footer-section">
@@ -417,6 +421,7 @@ function Home({ onNavigate }) {
               <div className="footer-links">
                 <button onClick={() => handleCardClick('tracker')} className="footer-link">Start Tracking</button>
                 <button onClick={() => handleCardClick('map')} className="footer-link">Live Map Demo</button>
+                <button onClick={() => handleCardClick('physics')} className="footer-link">Physics & Formulas</button>
               </div>
             </div>
           </div>
