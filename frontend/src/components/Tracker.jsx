@@ -1,4 +1,35 @@
 import { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Polyline, Circle } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default marker icons in React-Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+// Custom marker icon for tracking
+const createTrackingIcon = (isMoving) => {
+  const color = isMoving ? '#1B998B' : '#E84855';
+  return L.divIcon({
+    className: 'tracking-marker',
+    html: `
+      <div style="
+        background: ${color};
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      "></div>
+    `,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+};
 
 // Convert lat/lon to UTM coordinates
 function latLonToUTM(lat, lon) {
@@ -55,6 +86,7 @@ function Tracker() {
   const [watchId, setWatchId] = useState(null);
   const [totalDistance, setTotalDistance] = useState(0);
   const [lastSegmentDistance, setLastSegmentDistance] = useState(null);
+  const [trackingPath, setTrackingPath] = useState([]);
   const lastLocationRef = useRef(null);
 
   const handlePosition = (position) => {
@@ -84,6 +116,9 @@ function Tracker() {
 
     // Update last location reference
     lastLocationRef.current = newLocation;
+    
+    // Add to tracking path
+    setTrackingPath(prev => [...prev, [newLocation.latitude, newLocation.longitude]]);
     
     // Update all state together for immediate display
     setLocation(newLocation);
@@ -139,6 +174,7 @@ function Tracker() {
     setStatus('Ready to track');
     setTotalDistance(0);
     setLastSegmentDistance(null);
+    setTrackingPath([]);
     lastLocationRef.current = null;
   };
 
@@ -196,6 +232,68 @@ function Tracker() {
             <div className="location-item"><strong>Last Movement</strong><div className="small">{lastSegmentDistance !== null ? `${lastSegmentDistance.toFixed(2)} m` : 'N/A'}</div></div>
             <div className="location-item"><strong>Timestamp</strong><div className="small">{new Date(location.timestamp).toLocaleString()}</div></div>
           </div>
+        </div>
+      )}
+
+      {location && (
+        <div style={{ marginTop: '20px', height: '400px', borderRadius: '12px', overflow: 'hidden', border: '2px solid rgba(27, 153, 139, 0.3)' }}>
+          <MapContainer
+            center={[location.latitude, location.longitude]}
+            zoom={16}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={true}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            
+            {/* Current position marker */}
+            <Marker 
+              position={[location.latitude, location.longitude]} 
+              icon={createTrackingIcon(location.speed > 0.05)}
+            />
+
+            {/* Accuracy circle */}
+            <Circle
+              center={[location.latitude, location.longitude]}
+              radius={10}
+              pathOptions={{
+                color: '#1B998B',
+                fillColor: '#1B998B',
+                fillOpacity: 0.15,
+                weight: 2
+              }}
+            />
+
+            {/* Tracking path */}
+            {trackingPath.length > 1 && (
+              <Polyline
+                positions={trackingPath}
+                pathOptions={{
+                  color: '#1B998B',
+                  weight: 4,
+                  opacity: 0.8,
+                  lineCap: 'round',
+                  lineJoin: 'round'
+                }}
+              />
+            )}
+
+            {/* Start point marker */}
+            {trackingPath.length > 1 && (
+              <Circle
+                center={trackingPath[0]}
+                radius={5}
+                pathOptions={{
+                  color: '#E84855',
+                  fillColor: '#E84855',
+                  fillOpacity: 0.8,
+                  weight: 2
+                }}
+              />
+            )}
+          </MapContainer>
         </div>
       )}
     </div>

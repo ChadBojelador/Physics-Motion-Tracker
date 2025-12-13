@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Home from './components/Home.jsx';
 import Tracker from './components/Tracker.jsx';
+import MapDemo from './components/MapDemo.jsx';
 import './index.css';
 
 export default function App() {
@@ -11,6 +12,16 @@ export default function App() {
       return <Home onNavigate={setView} />;
     }
 
+    if (view === 'map') {
+      return (
+        <div className="app">
+          <div style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+            <MapDemo onNavigate={setView} />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="app">
         <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
@@ -19,7 +30,7 @@ export default function App() {
             className="btn btn-ghost"
             style={{ marginBottom: '10px' }}
           >
-            ← Back
+            ← Back to Home
           </button>
           <Tracker />
         </div>

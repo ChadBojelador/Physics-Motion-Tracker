@@ -330,7 +330,6 @@ For typical classroom experiments (distances under a few kilometers within one z
 | Stationary outdoors | Updates every ~1 s | 0.00 m/s | ~0 m | GPS fix; accuracy ±5 m. |
 | Walking 100 m (~1.4 m/s) | Smooth increments | 1.2–1.6 m/s | 95–105 m | Distance closely matches actual path. |
 | Running 200 m (~3 m/s) | Smooth increments | 2.8–3.5 m/s | 195–210 m | Slight overestimate due to GPS wobble. |
-| In vehicle 1 km (~15 m/s) | Rapid coordinate change | 14–16 m/s | 980–1020 m | Matches odometer roughly. |
 
 ### Discussion
 - **Speed null/N/A**: Some devices/browsers report `null` for speed when stationary or when the GPS chipset doesn't compute velocity. The UI gracefully shows "N/A" in this case.
