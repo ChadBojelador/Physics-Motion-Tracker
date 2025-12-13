@@ -5,14 +5,14 @@ const featureDetails = {
   tracking: {
     title: "Real-Time Tracking",
     icon: "📍",
-    shortDesc: "Track GPS coordinates with high accuracy using your smartphone's location services",
+    shortDesc: "Stream your live GPS coordinates with high-accuracy mode enabled",
     details: [
       "🔍 High-accuracy GPS mode enabled by default",
       "📡 Continuous position updates via watchPosition API",
       "🎯 UTM (Universal Transverse Mercator) coordinate system for precise calculations",
       "⚡ Maximum location age: 0ms (always fresh data)",
       "⏱️ 15-second timeout for optimal battery/accuracy balance",
-      "📊 Real-time latitude, longitude, and altitude tracking"
+      "📊 Live latitude, longitude, speed, distance, and timestamp"
     ],
     formula: "Uses WGS84 ellipsoid constants for coordinate conversion"
   },
@@ -33,30 +33,16 @@ const featureDetails = {
   map: {
     title: "Live Map View",
     icon: "🗺️",
-    shortDesc: "Interactive map with compass directions showing your path and current location",
+    shortDesc: "Interactive Leaflet map with destination pinning and road-following",
     details: [
-      "🌍 OpenStreetMap integration for global coverage",
-      "🧭 Real-time compass heading and direction",
-      "📍 Your position marked with live updates",
-      "🛣️ Path visualization showing movement history",
-      "🔄 Auto-centering on your current location",
-      "📱 Responsive map controls optimized for mobile"
+      "🌍 OpenStreetMap + OSRM routing for realistic paths",
+      "📍 Pin any destination to auto-generate a route",
+      "🛣️ Path visualization that follows actual road geometry",
+      "⚙️ Speed, progress, and ETA stats update in real-time",
+      "🔄 Movement controls for start, stop, and reset",
+      "📱 Responsive layout optimized for touch devices"
     ],
-    formula: "Powered by OpenStreetMap and Leaflet.js mapping library"
-  },
-  sync: {
-    title: "Wireless Sync",
-    icon: "🔄",
-    shortDesc: "Send location data from your phone and receive it on your laptop in real-time",
-    details: [
-      "📡 WebSocket-based real-time communication",
-      "🔐 Secure peer-to-peer data transmission",
-      "📱 Send from smartphone, receive on any device",
-      "⚡ Low-latency updates (<100ms typical)",
-      "🌐 Works across local network or internet",
-      "💾 Automatic reconnection on connection loss"
-    ],
-    formula: "Node.js backend with Socket.io for bidirectional event-based communication"
+    formula: "Powered by Leaflet.js with OSRM road-network routing"
   }
 };
 
@@ -310,26 +296,6 @@ function Home({ onNavigate }) {
             )}
           </div>
 
-          <div 
-            className="feature-card"
-            onClick={() => handleCardClick('tracker')}
-            onMouseEnter={() => setHoveredCard('sync')}
-            onMouseLeave={() => setHoveredCard(null)}
-          >
-            <div className="feature-icon">{featureDetails.sync.icon}</div>
-            <h3>{featureDetails.sync.title}</h3>
-            <p>{featureDetails.sync.shortDesc}</p>
-            <div className="card-click-hint">Click to sync devices →</div>
-            {hoveredCard === 'sync' && (
-              <div className="hover-tooltip">
-                <div className="tooltip-content">
-                  {featureDetails.sync.details.slice(0, 3).map((detail, idx) => (
-                    <div key={idx} className="tooltip-item">{detail}</div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         <div
