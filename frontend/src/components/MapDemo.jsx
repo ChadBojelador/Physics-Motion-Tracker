@@ -524,7 +524,15 @@ function MapDemo({ onNavigate }) {
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 'clamp(0.7rem, 2vw, 0.75rem)', color: '#888' }}>Est. Total</div>
           <div style={{ fontSize: 'clamp(0.9rem, 3vw, 1.1rem)', color: '#E84855', fontWeight: '600' }}>
-            {speed > 0 ? Math.ceil((targetDistance / speed)) : 0}s
+            {speed > 0 ? (() => {
+              const totalSeconds = Math.ceil(targetDistance / speed);
+              if (totalSeconds >= 60) {
+                const mins = Math.floor(totalSeconds / 60);
+                const secs = totalSeconds % 60;
+                return `${mins}m ${secs}s`;
+              }
+              return `${totalSeconds}s`;
+            })() : '0s'}
           </div>
         </div>
       </div>
